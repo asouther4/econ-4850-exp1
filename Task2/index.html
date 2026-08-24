@@ -21,20 +21,50 @@
 /* define welcome message block */
 var welcome_block = {
     type: "text",
-    text: "Welcome to the second section of the experiment. Press any key to continue."
+    text: function() {
+      var msg = "<p>Welcome to the second section of the experiment.</p>";
+      if (uni_from_task1) {
+        /* show the carried-over UNI so a student can catch a wrong one before starting */
+        msg += "<p>You are recorded as <strong>" + uni_code + "</strong>. If that is not " +
+               "your UNI, please go back to Section 1 and start again.</p>";
+      }
+      return msg + "<p>Press any key to continue.</p>";
+    }
 };
 
 /* insert UNI */
-var uni_block = {
+/* Task 1 hands the UNI over in the query string (../Task2/?uni=ab1234), so in the normal
+   flow students never type it twice and the two data files are guaranteed to carry the
+   same identifier. The prompt below is only a fallback for someone who opens this page
+   directly; it applies the same normalization and validation as Task 1. */
+var uni_is_valid = function(code) { return /^[a-z]{2,3}[0-9]{4}$/.test(code); };
+var uni_from_url = jsPsych.data.getURLVariable('uni');
+var uni_code = (typeof uni_from_url === 'string') ? uni_from_url.replace(/\s+/g, '').toLowerCase() : '';
+var uni_from_task1 = uni_is_valid(uni_code);
+if (!uni_from_task1) { uni_code = ''; }
+var uni_attempts = 0;
+
+var uni_trial = {
     type: "survey-text",
-    questions: ["Enter your UNI (letters and digits) in the box below and press submit to begin the second task."],
+    questions: ["Enter your UNI (2 or 3 letters followed by 4 digits, for example ab1234) in the box below and press submit to begin the second task."],
+    preamble: function() {
+      if (uni_attempts === 0) { return ""; }
+      return '<p style="color:#a00;"><strong>That does not look like a valid UNI.</strong> ' +
+             'A UNI is 2 or 3 letters followed by 4 digits, for example ab1234. Please try again.</p>';
+    },
     rows: [1],
     columns: [10],
     on_finish: function(trial_data){
       var responses = JSON.parse(trial_data.responses);
-      var code = responses.Q0;
-      jsPsych.data.addProperties({uni_code: code});
+      uni_code = String(responses.Q0).replace(/\s+/g, '').toLowerCase();
+      uni_attempts = uni_attempts + 1;
+      jsPsych.data.addProperties({uni_code: uni_code});
     }
+};
+
+var uni_block = {
+    timeline: [uni_trial],
+    loop_function: function(){ return !uni_is_valid(uni_code); }
 };
 
 /* define instructions message block */
@@ -109,15 +139,19 @@ var debrief_block = {
       text: function() {
         var subject_data = getSubjectData();
         return "<p>You completed the second task. Your average response time was <strong>" +
-        subject_data.rt + " ms</strong>.</p><p>Press any key to display the raw data from this task, "+
-        "and proceed to the next task.</p>";
+        subject_data.rt + " ms</strong>.</p><p>Press any key to finish the experiment "+
+        "and download your data file.</p>";
        }
 };
 
 /* create experiment timeline array */
 var timeline = [];
 timeline.push(welcome_block);       // welcome message
-timeline.push(uni_block);           // insert UNI
+if (uni_from_task1) {               // UNI arrived from Task 1 in the query string
+  jsPsych.data.addProperties({uni_code: uni_code});
+} else {
+  timeline.push(uni_block);         // fallback: page opened directly, so ask for it
+}
 timeline.push(instructions_block);  // instructions
 timeline.push(test_block);          // expriment
 timeline.push(debrief_block);       // summary statistics
@@ -148,12 +182,56 @@ function saveData(filename, filedata){
 /* start the experiment */
 jsPsych.init({
 timeline: timeline,
-on_finish: function(data) {
-    var alldata = jsPsych.data.getData();
-    jsPsych.data.displayData('CSV');
-    /*save_data(alldata);*/
-    saveData(alldata[1].uni_code+'.csv', jsPsych.data.dataAsCSV())
-    jsPsych.data.localSave(alldata[1].uni_code+'_part2.csv', 'csv');
+on_finish: function() {
+    var display_element = jsPsych.getDisplayElement();
+
+    /* =====================================================================
+       TA: the submission details below are PLACEHOLDERS. Edit the text
+       between the two SUBMISSION INSTRUCTIONS markers. It is ordinary HTML
+       inside a JavaScript string, so keep the quoting style as it is: each
+       line wrapped in single quotes and joined to the next one with a +.
+       The bracketed ALL-CAPS items are the bits that need replacing.
+       ===================================================================== */
+    display_element.html(
+      '<div class="center-content">' +
+      '<h2>Experiment complete &mdash; thank you!</h2>' +
+      '<p>You have now finished <strong>both sections</strong> of the experiment.</p>' +
+      '<p>Your data file <strong>' + uni_code + '_part2.csv</strong> has been downloaded ' +
+      'to your computer.</p>' +
+
+      /* ---------------- SUBMISSION INSTRUCTIONS: edit below ---------------- */
+      '<h3>Submitting your data</h3>' +
+      '<p>You must upload <strong>both</strong> of your data files to Courseworks:</p>' +
+      '<ul style="display:inline-block; text-align:left;">' +
+      '<li><strong>' + uni_code + '_part1.csv</strong> &nbsp;(from Section 1)</li>' +
+      '<li><strong>' + uni_code + '_part2.csv</strong> &nbsp;(from Section 2)</li>' +
+      '</ul>' +
+      '<p>Both files are in your browser&rsquo;s <strong>Downloads</strong> folder. ' +
+      'Please do not rename them.</p>' +
+      '<p>Upload them to the <strong>[ASSIGNMENT NAME]</strong> assignment on Courseworks ' +
+      'by <strong>[DUE DATE]</strong>.</p>' +
+      '<p>If you cannot find your Section 1 file, you will need to redo Section 1. ' +
+      'Questions? Contact <strong>[TA NAME AND EMAIL]</strong>.</p>' +
+      /* ---------------- SUBMISSION INSTRUCTIONS: edit above ---------------- */
+
+      '<p style="color:#777; font-size:13px;">If your download did not start, ' +
+      '<a href="#" id="download-again">click here to download your Section 2 data file</a>.</p>' +
+      '</div>'
+    );
+
+    $('#download-again').click(function(e){
+      e.preventDefault();
+      $('#jspsych-download-as-text-link').remove();
+      jsPsych.data.localSave(uni_code + '_part2.csv', 'csv');
+    });
+
+    /* Still POSTs to save_data.php. There is no PHP on a static host, so this request
+       just fails silently; it is left in place for if a backend is added later. */
+    saveData(uni_code + '.csv', jsPsych.data.dataAsCSV());
+
+    /* Trigger the download LAST: localSave appends its hidden <a> into the display
+       element, so the end screen has to exist first or it would be wiped away. */
+    jsPsych.data.localSave(uni_code + '_part2.csv', 'csv');
 }
 });
   </script>

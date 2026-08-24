@@ -25,16 +25,37 @@ var welcome_block = {
   };
 
 /* insert UNI */
-var uni_block = {
+/* The UNI is normalized (all whitespace stripped, lowercased) and validated before the
+   experiment starts. This guarantees that (a) no stray whitespace can reach the data
+   file -- uni_code is copied onto every row by addProperties, so a single newline used
+   to split every line of the CSV -- and (b) the identifier recorded here matches the
+   one recorded in Task 2, which is what makes the two files joinable. The trial sits
+   inside a loop node, so an invalid entry simply re-asks. */
+var uni_code = '';
+var uni_attempts = 0;
+var uni_is_valid = function(code) { return /^[a-z]{2,3}[0-9]{4}$/.test(code); };
+
+var uni_trial = {
     type: "survey-text",
-    questions: ["Enter your UNI (letters and digits) in the box below and press submit to begin the first task."],
+    questions: ["Enter your UNI (2 or 3 letters followed by 4 digits, for example ab1234) in the box below and press submit to begin the first task."],
+    preamble: function() {
+      if (uni_attempts === 0) { return ""; }
+      return '<p style="color:#a00;"><strong>That does not look like a valid UNI.</strong> ' +
+             'A UNI is 2 or 3 letters followed by 4 digits, for example ab1234. Please try again.</p>';
+    },
     rows: [1],
     columns: [10],
     on_finish: function(trial_data){
       var responses = JSON.parse(trial_data.responses);
-      var code = responses.Q0;
-      jsPsych.data.addProperties({uni_code: code});
+      uni_code = String(responses.Q0).replace(/\s+/g, '').toLowerCase();
+      uni_attempts = uni_attempts + 1;
+      jsPsych.data.addProperties({uni_code: uni_code});
     }
+};
+
+var uni_block = {
+    timeline: [uni_trial],
+    loop_function: function(){ return !uni_is_valid(uni_code); }
 };
 
 /* define instructions message block */
@@ -132,8 +153,8 @@ var debrief_block = {
         var subject_data = getSubjectData();
         return "<p>You completed the first task. Your average response time was <strong>" +
         subject_data.rt + " ms</strong>.</p><p>The average value you assigned was<strong> $ " +
-        subject_data.sim_score/20 + "</strong>. Press any key to display the raw data from this task, "+
-        "and proceed to the next task.</p>";
+        subject_data.sim_score/20 + "</strong>. Press any key to finish this section "+
+        "and download your data file.</p>";
        }
 };
 
@@ -171,11 +192,47 @@ function saveData(filename, filedata){
 /* start the experiment */
 jsPsych.init({
 timeline: timeline,
-on_finish: function(data) {
-    var alldata = jsPsych.data.getData();
-    jsPsych.data.displayData('CSV');
-    saveData(alldata[1].uni_code+'.csv', jsPsych.data.dataAsCSV())
-    jsPsych.data.localSave(alldata[1].uni_code+'_part1.csv', 'csv');
+on_finish: function() {
+    var display_element = jsPsych.getDisplayElement();
+    var next_url = '../Task2/?uni=' + encodeURIComponent(uni_code);
+
+    /* A real end screen. The raw-CSV dump that used to be here (jsPsych.data.displayData)
+       is a developer debugging aid, not something a participant should be left staring
+       at, and it offered no way onward to Section 2. */
+    display_element.html(
+      '<div class="center-content">' +
+      '<h2>Section 1 complete &mdash; thank you!</h2>' +
+      '<p>Your data file <strong>' + uni_code + '_part1.csv</strong> has been downloaded to ' +
+      'your computer. Please keep it somewhere convenient.</p>' +
+      '<p>You still need to complete <strong>Section 2</strong>, which takes about 30 minutes. ' +
+      'Please try to complete it in one sitting.</p>' +
+      '<p><button type="button" id="continue-to-task2" class="jspsych-btn" ' +
+      'style="font-size:18px; padding:12px 24px;">Continue to Section 2</button></p>' +
+      '<p style="color:#777; font-size:13px;">Your UNI is carried over automatically, so you ' +
+      'will not need to type it again.<br>If your download did not start, ' +
+      '<a href="#" id="download-again">click here to download your data file</a>.</p>' +
+      '</div>'
+    );
+
+    $('#continue-to-task2').click(function(){
+      window.location.href = next_url;
+    });
+
+    $('#download-again').click(function(e){
+      e.preventDefault();
+      $('#jspsych-download-as-text-link').remove();
+      jsPsych.data.localSave(uni_code + '_part1.csv', 'csv');
+    });
+
+    /* Still POSTs to save_data.php. There is no PHP on a static host, so this request
+       just fails silently; it is left in place for if a backend is added later. */
+    saveData(uni_code + '.csv', jsPsych.data.dataAsCSV());
+
+    /* Trigger the download LAST: localSave appends its hidden <a> into the display
+       element, so the end screen has to exist first or it would be wiped away. We
+       deliberately do not auto-redirect -- navigating away immediately after starting
+       a blob download can cancel the download in some browsers. */
+    jsPsych.data.localSave(uni_code + '_part1.csv', 'csv');
 }
 });
   </script>

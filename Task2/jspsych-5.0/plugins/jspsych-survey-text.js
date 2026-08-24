@@ -54,7 +54,11 @@ jsPsych.plugins['survey-text'] = (function() {
       $("#jspsych-survey-text-" + i).append('<p class="jspsych-survey-text">' + trial.questions[i] + '</p>');
 
       // add text box
-      $("#jspsych-survey-text-" + i).append('<textarea name="#jspsych-survey-text-response-' + i + '" cols="' + trial.columns[i] + '" rows="' + trial.rows[i] + '"></textarea>');
+      // A single-line <input> rather than a <textarea>: the HTML value sanitization
+      // algorithm strips newlines from a text input, so a stray Enter keypress can
+      // never end up inside the recorded response -- and from there into every row
+      // of the CSV, since uni_code is copied onto all rows by data.addProperties().
+      $("#jspsych-survey-text-" + i).append('<input type="text" name="#jspsych-survey-text-response-' + i + '" size="' + trial.columns[i] + '">');
     }
 
     // add submit button
@@ -72,7 +76,7 @@ jsPsych.plugins['survey-text'] = (function() {
       var question_data = {};
       $("div.jspsych-survey-text-question").each(function(index) {
         var id = "Q" + index;
-        var val = $(this).children('textarea').val();
+        var val = $(this).children('input').val();
         var obje = {};
         obje[id] = val;
         $.extend(question_data, obje);
@@ -89,6 +93,18 @@ jsPsych.plugins['survey-text'] = (function() {
       // next trial
       jsPsych.finishTrial(trialdata);
     });
+
+    // Enter now submits the answer instead of doing nothing. This is safe on a text
+    // input, which cannot hold a newline, and matches what students expect.
+    display_element.find('input[type="text"]').keydown(function(e) {
+      if (e.which === 13) {
+        e.preventDefault();
+        $("#jspsych-survey-text-next").click();
+      }
+    });
+
+    // put the cursor in the box so students can just start typing
+    display_element.find('input[type="text"]').first().focus();
 
     var startTime = (new Date()).getTime();
   };
