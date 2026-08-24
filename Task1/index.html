@@ -37,7 +37,7 @@ var uni_is_valid = function(code) { return /^[a-z]{2,3}[0-9]{4}$/.test(code); };
 
 var uni_trial = {
     type: "survey-text",
-    questions: ["Enter your UNI (2 or 3 letters followed by 4 digits, for example ab1234) in the box below and press submit to begin the first task."],
+    questions: ["Enter your UNI in the box below and press submit to begin the first task."],
     preamble: function() {
       if (uni_attempts === 0) { return ""; }
       return '<p style="color:#a00;"><strong>That does not look like a valid UNI.</strong> ' +
