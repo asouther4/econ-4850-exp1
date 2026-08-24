@@ -1,0 +1,182 @@
+<!doctype html>
+<html>
+  <head>
+    <title>ECON 4850 - Choice Experiment 1</title>
+    <script src="https://ajax.googleapis.com/ajax/libs/jquery/1.11.1/jquery.min.js"></script>
+    <script src="jspsych-5.0/jspsych.js"></script>
+    <script src="jspsych-5.0/plugins/jspsych-text.js"></script>
+    <script src="jspsych-5.0/plugins/jspsych-single-stim.js"></script>
+    <script src="jspsych-5.0/plugins/jspsych-survey-text.js"></script>
+    <script src="jspsych-5.0/plugins/jspsych-survey-likert.js"></script>
+    <script src="jspsych-5.0/plugins/jspsych-similarity.js"></script>
+    <script src="jspsych-5.0/plugins/jspsych-bidding.js"></script>
+    <script src="jspsych-5.0/plugins/jspsych-binary-choice.js"></script>
+    <script src="https://ajax.googleapis.com/ajax/libs/jqueryui/1.10.3/jquery-ui.min.js"></script>
+    <link href="https://ajax.googleapis.com/ajax/libs/jqueryui/1.10.3/themes/black-tie/jquery-ui.min.css" rel="stylesheet" type="text/css"></link>
+    <link href="jspsych-5.0/css/jspsych.css" rel="stylesheet" type="text/css"></link>
+  </head>
+  </body>
+  <script>
+
+/* define welcome message block */
+var welcome_block = {
+      type: "text",
+      text: "Welcome to the first section of the experiment. Press any key to continue."
+  };
+
+/* insert UNI */
+var uni_block = {
+    type: "survey-text",
+    questions: ["Enter your UNI (letters and digits) in the box below and press submit to begin the first task."],
+    rows: [1],
+    columns: [10],
+    on_finish: function(trial_data){
+      var responses = JSON.parse(trial_data.responses);
+      var code = responses.Q0;
+      jsPsych.data.addProperties({uni_code: code});
+    }
+};
+
+/* define instructions message block */
+var instructions_block = {
+    type: "text",
+    text: "<p>In this task, a sequence of snack items will appear on the screen.</p>" +
+        "<p>Please state your willingness to pay for each product, i.e. the maximum " +
+        "amount that you would be willing to pay in order to buy that product. You can " +
+        "select any value from $0 to $5 by moving the on-screen slider with the mouse. " +
+        "Clicking the submit button will allow you to proceed to the next item.</p></div>" +
+        "<p>Press any key to begin.</p>",
+        timing_post_trial: 2000
+};
+
+// ten possible sequences
+var i1 = [0,2,25,16,30,20,9,4,8,21,18,13,17,24,14,7,28,19,29,12,1,22,23,26,6,27,11,5,15,3,10,16,13,20,17,2,9,19,29,12,7,24,4,28,6,1,25,23,22,5,18,3,15,27,14,11,10,8,30,26,21,7,16,9,17,29,13,24,4,25,18,5,12,15,3,2,19,14,1,27,8,22,11,23,10,6,30,28,26,21,20];
+var i2 = [0,4,2,10,17,16,22,19,1,7,12,29,18,8,21,27,15,3,23,30,28,20,26,5,9,13,6,11,25,14,24,2,1,19,4,29,15,7,10,27,28,3,16,30,18,9,20,23,8,13,24,6,11,5,21,25,17,22,14,26,12,28,29,16,15,3,1,19,30,7,13,27,11,9,10,20,17,25,21,24,18,8,26,6,2,4,12,23,5,22,14];
+var i3 = [0,6,15,12,21,30,23,7,1,18,11,13,5,3,26,29,17,4,20,27,10,8,22,28,25,14,16,2,9,24,19,13,11,5,7,26,6,29,30,15,12,10,4,20,17,1,22,8,23,28,16,25,3,2,27,14,19,18,9,24,21,12,11,6,30,10,7,8,23,20,29,15,25,13,26,2,1,5,17,3,19,18,21,28,4,22,14,16,24,27,9];
+var i4 = [0,7,12,20,5,19,8,18,26,3,22,15,9,11,1,24,13,17,4,2,14,23,27,29,25,6,10,28,16,30,21,20,7,22,12,8,24,5,26,1,11,18,27,4,2,23,15,19,25,16,17,14,9,21,30,6,28,29,10,3,13,5,7,4,11,2,12,24,15,27,26,22,23,20,19,18,21,9,14,25,30,29,13,8,28,10,3,1,17,16,6];
+var i5 = [0,9,29,4,10,26,13,2,12,16,3,5,7,23,19,8,11,30,6,27,28,1,21,18,25,15,14,24,17,20,22,12,16,13,29,4,7,19,10,26,9,2,11,28,21,30,1,25,17,14,24,27,18,15,8,3,5,23,22,6,20,12,10,9,2,29,7,21,30,4,25,1,16,11,26,8,14,17,23,24,20,6,3,19,22,5,15,13,28,18,27];
+var i6 = [0,10,22,6,7,13,8,26,5,9,14,19,27,23,29,11,21,16,4,3,18,17,30,28,15,1,24,25,2,12,20,7,8,27,5,9,13,19,26,6,3,11,16,14,29,15,1,28,4,22,23,25,18,30,21,12,17,20,24,10,2,9,6,11,7,26,3,28,13,14,23,29,4,22,8,21,19,25,30,15,16,2,5,17,10,24,1,20,12,27,18];
+var i7 = [0,12,28,7,22,11,4,13,21,27,30,17,29,5,23,25,16,9,10,2,8,3,1,19,20,26,18,6,14,15,24,13,28,27,5,21,7,23,4,30,10,12,2,17,8,29,1,22,6,19,25,15,11,18,26,16,24,20,14,9,3,10,13,5,2,23,17,28,7,27,12,22,19,4,1,21,29,18,11,8,15,26,16,14,3,30,6,20,25,9,24];
+var i8 = [0,16,11,3,8,6,20,18,22,1,28,5,26,24,19,14,4,9,12,15,23,10,25,29,21,13,30,7,27,17,2,20,8,6,5,28,19,3,14,22,23,26,10,29,18,25,12,11,30,17,2,13,4,9,27,1,7,21,24,16,15,5,14,19,28,6,12,26,30,10,11,18,25,17,20,27,9,3,2,8,13,4,24,22,21,29,16,23,15,7,1];
+var i9 = [0,20,15,30,12,4,1,18,21,28,23,2,11,14,24,10,16,13,27,8,5,17,25,29,26,7,9,3,22,6,19,28,2,14,1,11,12,16,27,18,23,13,5,10,24,15,20,3,25,22,9,4,30,17,8,21,19,7,6,26,29,2,18,14,11,12,5,10,23,28,24,1,25,3,13,16,21,15,4,22,30,17,19,26,29,6,8,7,20,9,27];
+var i10 = [0,28,25,12,26,13,19,2,8,7,5,4,20,10,29,17,22,14,11,6,3,23,21,16,27,9,24,18,15,1,30,19,12,5,29,20,28,8,7,11,2,6,4,14,21,26,3,13,15,1,16,22,9,18,30,24,27,23,25,17,10,11,5,14,6,29,3,26,28,1,15,19,16,21,13,24,22,23,9,8,30,25,4,17,2,10,18,12,20,7,27];
+// randomly draw one of the sequences
+var num_sequence = Math.floor( Math.random() * 10 ) + 1;
+if (num_sequence == 1){    var list = i1; }
+if (num_sequence == 2){    var list = i2; }
+if (num_sequence == 3){    var list = i3; }
+if (num_sequence == 4){    var list = i4; }
+if (num_sequence == 5){    var list = i5; }
+if (num_sequence == 6){    var list = i6; }
+if (num_sequence == 7){    var list = i7; }
+if (num_sequence == 8){    var list = i8; }
+if (num_sequence == 9){    var list = i9; }
+if (num_sequence == 10){   var list = i10;}
+// create the vector with the selected sequence
+var new_stimuli=[];
+for (var pos = 1; pos<=90; pos++){
+  new_stimuli.push({stimuli: ['<div class="center-content"><img src="img/' + list[pos] + '_food.jpg"></img></div>'], data: {item1: list[pos]}});
+}
+var all_trials = new_stimuli;
+
+/* define list of stimuli to show */
+//var new_stimuli = [];
+//for (var i1 = 1; i1<=30; i1++){
+//  new_stimuli.push({stimuli: ['<div class="center-content"><img src="img/' + i1 + '_food.jpg"></img></div>'], data: {item1: i1}});
+//}
+/* randomize stimuli (1 repetition of each stimulus) */
+//var all_trials = jsPsych.randomization.repeat(new_stimuli,3);
+
+/* randomize time after trial */
+var post_trial_gap = function() {
+    return Math.floor( Math.random() * 750 ) + 250;
+};
+
+/* choice block */
+var test_block = {
+    type: 'bidding',
+    labels: ['$ 0','$ 1','$ 2','$ 3','$ 4','$ 5'], //values for the slider
+    intervals: 101,
+    show_ticks: false,
+    timing_first_stim: 1, //1ms for the first image
+    timing_image_gap: 1,  //1ms between image 1 and 2
+    prompt:"<p><center>Drag the slider to indicate what is the most you would pay for this item.</center></p>",
+    is_html: true,
+    timing_post_trial: post_trial_gap,
+    timeline: all_trials,
+    on_finish: function(trial_data){
+        var bidding = (trial_data.sim_score-1)/20;
+        jsPsych.data.addDataToLastTrial({bidding: bidding});
+    }
+};
+
+/* summary statistics */
+function getSubjectData() {
+      var trials = jsPsych.data.getTrialsOfType('bidding');
+      var sum_rt = 0;
+      var sum_score = 0;
+      for (var i = 0; i < trials.length; i++) {
+            sum_rt += trials[i].rt;
+            sum_score += trials[i].sim_score;
+          }
+      return {
+        rt: Math.floor(sum_rt / trials.length),
+        sim_score: Math.floor((sum_score - trials.length)/trials.length),
+      }
+}
+
+/* debrief block statistics */
+var debrief_block = {
+      type: "text",
+      text: function() {
+        var subject_data = getSubjectData();
+        return "<p>You completed the first task. Your average response time was <strong>" +
+        subject_data.rt + " ms</strong>.</p><p>The average value you assigned was<strong> $ " +
+        subject_data.sim_score/20 + "</strong>. Press any key to display the raw data from this task, "+
+        "and proceed to the next task.</p>";
+       }
+};
+
+/* create experiment timeline array */
+var timeline = [];
+timeline.push(welcome_block);       // welcome message
+timeline.push(uni_block);           // insert UNI
+timeline.push(instructions_block);  // instructions
+timeline.push(test_block);          // expriment
+timeline.push(debrief_block);       // summary statistics
+
+/* save data code snippet
+function save_data(data){
+     var data_table = "econ4850_raccoon1"; // change this for different experiments
+     $.ajax({
+        type:'post',
+        cache: false,
+        url: 'savedata.php', // change this to point to your php file.
+        data: {
+            table: data_table,
+            json: JSON.stringify(data),
+        },
+        success: function(output) { console.log(output); } // write the result to javascript console
+     });
+}*/
+function saveData(filename, filedata){
+   $.ajax({
+      type:'post',
+      cache: false,
+      url: 'save_data.php', // this is the path to the above PHP script
+      data: {filename: filename, filedata: filedata}
+   });
+}
+
+/* start the experiment */
+jsPsych.init({
+timeline: timeline,
+on_finish: function(data) {
+    var alldata = jsPsych.data.getData();
+    jsPsych.data.displayData('CSV');
+    saveData(alldata[1].uni_code+'.csv', jsPsych.data.dataAsCSV())
+    jsPsych.data.localSave(alldata[1].uni_code+'_part1.csv', 'csv');
+}
+});
+  </script>
+</html>
