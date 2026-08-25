@@ -46,7 +46,7 @@ var uni_attempts = 0;
 
 var uni_trial = {
     type: "survey-text",
-    questions: ["Enter your UNI (2 or 3 letters followed by 4 digits, for example ab1234) in the box below and press submit to begin the second task."],
+    questions: ["Enter your UNI in the box below and press submit to begin the second task."],
     preamble: function() {
       if (uni_attempts === 0) { return ""; }
       return '<p style="color:#a00;"><strong>That does not look like a valid UNI.</strong> ' +
@@ -194,24 +194,23 @@ on_finish: function() {
        ===================================================================== */
     display_element.html(
       '<div class="center-content">' +
-      '<h2>Experiment complete &mdash; thank you!</h2>' +
-      '<p>You have now finished <strong>both sections</strong> of the experiment.</p>' +
-      '<p>Your data file <strong>' + uni_code + '_part2.csv</strong> has been downloaded ' +
+      '<h2>Experiment complete</h2>' +
+      '<p>You have now finished both sections of the experiment. ' +
+      'Your data file <strong>' + uni_code + '_part2.csv</strong> has been downloaded ' +
       'to your computer.</p>' +
 
       /* ---------------- SUBMISSION INSTRUCTIONS: edit below ---------------- */
-      '<h3>Submitting your data</h3>' +
       '<p>You must upload <strong>both</strong> of your data files to Courseworks:</p>' +
       '<ul style="display:inline-block; text-align:left;">' +
       '<li><strong>' + uni_code + '_part1.csv</strong> &nbsp;(from Section 1)</li>' +
       '<li><strong>' + uni_code + '_part2.csv</strong> &nbsp;(from Section 2)</li>' +
       '</ul>' +
       '<p>Both files are in your browser&rsquo;s <strong>Downloads</strong> folder. ' +
-      'Please do not rename them.</p>' +
-      '<p>Upload them to the <strong>[ASSIGNMENT NAME]</strong> assignment on Courseworks ' +
-      'by <strong>[DUE DATE]</strong>.</p>' +
-      '<p>If you cannot find your Section 1 file, you will need to redo Section 1. ' +
-      'Questions? Contact <strong>[TA NAME AND EMAIL]</strong>.</p>' +
+      'Please do not rename them. ' +
+      'Upload them to the <strong>[ASSIGNMENT NAME]</strong> assignment on Courseworks ' +
+      'by <strong>[DUE DATE]</strong>.' +
+      'If you cannot find your Section 1 file, you will need to redo Section 1.</p>' +
+      '<p>Questions? Contact Andrew Souther: ads2286 (at) columbia.edu.</p>' +
       /* ---------------- SUBMISSION INSTRUCTIONS: edit above ---------------- */
 
       '<p style="color:#777; font-size:13px;">If your download did not start, ' +
