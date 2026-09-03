@@ -146,6 +146,37 @@ function getSubjectData() {
       }
 }
 
+/* Mean bid for each of the 30 snacks, in dollars, indexed 1..30.
+   Section 2 uses these to decide which pairs of snacks to show (see Task2/index.html),
+   so they are handed over when we redirect. The bid is recomputed from sim_score
+   (the raw 1..101 slider position) rather than read back from the `bidding` field, so
+   this does not depend on which on_finish callbacks have already run. */
+function getMeanValues() {
+      var trials = jsPsych.data.getTrialsOfType('bidding');
+      var sums = [], counts = [];
+      for (var i = 0; i < 30; i++) { sums.push(0); counts.push(0); }
+      for (var t = 0; t < trials.length; t++) {
+            var item = trials[t].item1;
+            if (!(item >= 1 && item <= 30)) { continue; }
+            sums[item - 1] += (trials[t].sim_score - 1) / 10;
+            counts[item - 1] += 1;
+          }
+      /* An item with no usable trials should not happen -- every snack is bid on three
+         times -- but if it ever does, standing it in at the average of the rest keeps it
+         from looking like a $0 item and dragging the value differences around. */
+      var seen_sum = 0, seen_n = 0;
+      for (var i = 0; i < 30; i++) {
+            if (counts[i] > 0) { seen_sum += sums[i] / counts[i]; seen_n += 1; }
+          }
+      var grand_mean = (seen_n > 0) ? (seen_sum / seen_n) : 0;
+      var means = [];
+      for (var i = 0; i < 30; i++) {
+            var m = (counts[i] > 0) ? (sums[i] / counts[i]) : grand_mean;
+            means.push(m.toFixed(6));
+          }
+      return means;
+}
+
 /* debrief block statistics */
 var debrief_block = {
       type: "text",
@@ -194,7 +225,20 @@ jsPsych.init({
 timeline: timeline,
 on_finish: function() {
     var display_element = jsPsych.getDisplayElement();
-    var next_url = '../Task2/?uni=' + encodeURIComponent(uni_code);
+
+    /* Hand the 30 mean bids to Section 2 twice over: in the query string, which is what
+       the "Continue to Section 2" button below uses, and in localStorage, which survives
+       a student who closes the tab and comes back to Task2/ by some other route (both
+       tasks are served from the same origin, so they share a store). The store is keyed
+       by UNI, so on a shared computer Section 2 can never pick up someone else's bids;
+       if it finds none it falls back to showing every pair once. */
+    var values_param = getMeanValues().join(',');
+    try {
+      window.localStorage.setItem('econ4850_values_' + uni_code, values_param);
+    } catch (e) { /* private browsing / storage disabled -- the query string still works */ }
+
+    var next_url = '../Task2/?uni=' + encodeURIComponent(uni_code) +
+                   '&v=' + encodeURIComponent(values_param);
 
     /* A real end screen. The raw-CSV dump that used to be here (jsPsych.data.displayData)
        is a developer debugging aid, not something a participant should be left staring

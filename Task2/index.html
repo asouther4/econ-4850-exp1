@@ -74,7 +74,10 @@ var instructions_block = {
         "<p>Your task is to indicate which of the two snack items you would rather have. " +
         "Press the Q key to choose the item on the left or the P key to choose the item on the right.</p></div>" +
         "<p>Press any key to begin.</p>",
-        timing_post_trial: 2000
+        timing_post_trial: 2000,
+        /* last chance to pick up the Section 1 bids, once a directly-opened page has
+           finally been told whose they are -- see lookupValues() below */
+        on_finish: function() { lookupValues(); }
 };
 
 /* i is a counter and indicates current trial (starts at 1 and is updated after each choice) */
@@ -83,15 +86,215 @@ var next = function(){
     i = i+1;
 }
 
-/* sorted list of stimuli, nested cycle generates the list of simple combinations (pairs) */
-var new_stimuli=[];
-for (var i1 = 1; i1<=30; i1++){
-  for (var i2 = i1+1; i2<=30; i2++){
-    new_stimuli.push({stimuli: ["img/" + i1 + "_food.jpg","img/" + i2 + "_food.jpg"],data: {item1: i1, item2: i2}});
+/* ============================================================================
+   WHICH PAIRS OF SNACKS TO SHOW
+   ----------------------------------------------------------------------------
+   This section used to show all 435 pairs of snacks twice over -- 870 trials, which
+   is a punishing amount of key pressing. It now shows 435, picked once the Section 1
+   bids are known so that they spread as evenly as possible over the 15 bins that
+   PS2 Q1(e) asks students to sort their trials into.
+
+   The bins are the ones the problem set defines. Let delta be the mean Section 1 bid
+   for the snack on the right minus the mean bid for the snack on the left, and let M
+   be the largest |delta| among all 435 pairs. The bins are 15 equal-width intervals
+   covering [-M, +M]. A pair's |delta| is fixed, but its sign is not: it is settled by
+   which of the two snacks goes on the right, so every pair can be aimed at either of
+   two mirror-image bins.
+
+   Bins near the edges are naturally thin -- usually only a handful of pairs differ in
+   value by anything close to M -- so an exact 29 trials in each of the 15 bins is
+   normally out of reach. Trials are therefore dealt out one at a time to whichever bin
+   is currently emptiest: every bin fills to the same depth until one runs out of
+   material, and the rest keep filling without it. Within a bin, a pair is only shown a
+   second time once every other pair in that bin has been shown once, and a third time
+   once every other has been shown twice. No pair is ever shown more than MAX_REPEATS
+   times, so the thinnest bins stay thin rather than being padded out with one pair
+   over and over.
+
+   If the Section 1 bids cannot be found at all (someone opened this page directly),
+   there is nothing to bin on and the task falls back to the old design at half length:
+   every pair exactly once, sides randomized.
+   ============================================================================ */
+var N_ITEMS = 30;
+var N_BINS = 15;
+var N_TRIALS = 435;      // = C(30,2), i.e. one trial per pair on average
+var MAX_REPEATS = 3;     // most times any single pair may be shown
+
+/* Section 1 mean bids, and the largest |delta| they imply. Held in one object because
+   they are not always known when the trial list is built -- see lookupValues(). */
+var VALUES = {v: null, max_abs: 0};
+
+function parseValues(str) {
+  if (typeof str !== 'string' || str === '') { return null; }
+  var parts = str.split(',');
+  if (parts.length !== N_ITEMS) { return null; }
+  var vals = [];
+  for (var k = 0; k < N_ITEMS; k++) {
+    var v = parseFloat(parts[k]);
+    if (!isFinite(v)) { return null; }
+    vals.push(v);
+  }
+  return vals;
+}
+
+function readStore(key) {
+  /* localStorage throws outright in some privacy modes, so never let it break the task */
+  try { return window.localStorage.getItem(key); } catch (e) { return null; }
+}
+
+function maxAbsDelta(vals) {
+  var m = 0;
+  for (var a = 0; a < N_ITEMS; a++) {
+    for (var b = a + 1; b < N_ITEMS; b++) {
+      var d = Math.abs(vals[b] - vals[a]);
+      if (d > m) { m = d; }
+    }
+  }
+  return m;
+}
+
+function useValues(vals) {
+  if (vals === null) { return false; }
+  VALUES.v = vals;
+  VALUES.max_abs = maxAbsDelta(vals);
+  jsPsych.data.addProperties({max_abs_delta: Math.round(VALUES.max_abs * 1e6) / 1e6});
+  return true;
+}
+
+/* The bin a trial with value difference delta falls into, numbered 1..N_BINS, exactly
+   as PS2 Q1(e) defines them: equal-width bins spanning [-max_abs, +max_abs]. */
+function binOf(delta, max_abs) {
+  if (!(max_abs > 0)) { return Math.ceil(N_BINS / 2); }  // no spread in the bids at all
+  var b = Math.floor((delta + max_abs) / (2 * max_abs / N_BINS));
+  if (b < 0) { b = 0; }
+  if (b > N_BINS - 1) { b = N_BINS - 1; }
+  return b + 1;
+}
+
+/* Section 1 puts the bids in the query string when it sends the student here, and also
+   leaves them in localStorage in case that link is not the route they took. */
+useValues(parseValues(jsPsych.data.getURLVariable('v')));
+if (VALUES.v === null && uni_from_task1) {
+  useValues(parseValues(readStore('econ4850_values_' + uni_code)));
+}
+
+/* Someone who opens this page with no query string at all types their UNI at the prompt
+   above, which happens after the trial list has already been built. The pairs they see
+   are then whatever the fallback chose, but the bids can still be recovered in time to
+   label each trial with its value difference. */
+function lookupValues() {
+  if (VALUES.v === null && uni_is_valid(uni_code)) {
+    useValues(parseValues(readStore('econ4850_values_' + uni_code)));
   }
 }
-/* the order of the list is randomized*/
-var all_trials = jsPsych.randomization.repeat(new_stimuli,2);
+
+function everyPairOnce() {
+  var out = [];
+  for (var a = 1; a <= N_ITEMS; a++) {
+    for (var b = a + 1; b <= N_ITEMS; b++) {
+      out.push({stimuli: ["img/" + a + "_food.jpg", "img/" + b + "_food.jpg"],
+                data: {item1: a, item2: b}});
+    }
+  }
+  /* no target_left, so the plugin randomizes which snack lands on which side */
+  return jsPsych.randomization.shuffle(out);
+}
+
+function selectBalancedTrials(vals, max_abs) {
+  /* every unordered pair, with the higher-valued snack recorded as `hi` */
+  var pairs = [];
+  for (var a = 1; a <= N_ITEMS; a++) {
+    for (var b = a + 1; b <= N_ITEMS; b++) {
+      var va = vals[a - 1], vb = vals[b - 1];
+      pairs.push({hi: (vb >= va) ? b : a,
+                  lo: (vb >= va) ? a : b,
+                  d: Math.abs(vb - va),
+                  uses: 0});
+    }
+  }
+
+  /* Each pair gives two candidate trials: hi_right puts the better snack on the right
+     (delta = +d), the other puts it on the left (delta = -d). Those land in mirror-image
+     bins, except for pairs close enough in value that both fall in the middle bin. */
+  var by_bin = [];
+  var j;
+  for (j = 0; j < N_BINS; j++) { by_bin.push([]); }
+  for (var k = 0; k < pairs.length; k++) {
+    by_bin[binOf(pairs[k].d, max_abs) - 1].push({pair: pairs[k], hi_right: true});
+    by_bin[binOf(-pairs[k].d, max_abs) - 1].push({pair: pairs[k], hi_right: false});
+  }
+  for (j = 0; j < N_BINS; j++) { by_bin[j] = jsPsych.randomization.shuffle(by_bin[j]); }
+
+  var chosen = [];
+  var counts = [];
+  for (j = 0; j < N_BINS; j++) { counts.push(0); }
+
+  /* One more trial out of bin j, taken from a pair used as few times as any other pair
+     in that bin. Returns false once every pair in the bin is spent. */
+  function take(b) {
+    for (var level = 0; level < MAX_REPEATS; level++) {
+      for (var n = 0; n < by_bin[b].length; n++) {
+        if (by_bin[b][n].pair.uses === level) {
+          by_bin[b][n].pair.uses += 1;
+          counts[b] += 1;
+          chosen.push(by_bin[b][n]);
+          return true;
+        }
+      }
+    }
+    return false;
+  }
+
+  /* Spend the widest-apart pair first, in both directions. Students rebuild the bin
+     edges from the largest |delta| among the trials they were actually given, so if that
+     pair never appeared their edges would not be the ones used here. */
+  var widest = 0;
+  for (var q = 1; q < pairs.length; q++) {
+    if (pairs[q].d > pairs[widest].d) { widest = q; }
+  }
+  if (max_abs > 0) {
+    pairs[widest].uses += 2;
+    counts[binOf(pairs[widest].d, max_abs) - 1] += 1;
+    counts[binOf(-pairs[widest].d, max_abs) - 1] += 1;
+    chosen.push({pair: pairs[widest], hi_right: true});
+    chosen.push({pair: pairs[widest], hi_right: false});
+  }
+
+  /* Deal out the rest, each pass topping up every bin that still has material. Bins are
+     visited emptiest-first so that when the budget runs out mid-pass the leftover trials
+     go where they are most needed; the shuffle breaks ties between equally full bins. */
+  var order = [];
+  for (j = 0; j < N_BINS; j++) { order.push(j); }
+  while (chosen.length < N_TRIALS) {
+    order = jsPsych.randomization.shuffle(order);
+    order.sort(function(x, y) { return counts[x] - counts[y]; });
+    var progress = false;
+    for (var t = 0; t < order.length && chosen.length < N_TRIALS; t++) {
+      if (take(order[t])) { progress = true; }
+    }
+    if (!progress) { break; }  // every pair has been shown MAX_REPEATS times
+  }
+  return chosen;
+}
+
+var all_trials;
+if (VALUES.v === null) {
+  jsPsych.data.addProperties({selection: 'all_pairs_once'});
+  all_trials = everyPairOnce();
+} else {
+  jsPsych.data.addProperties({selection: 'balanced_bins'});
+  var chosen = jsPsych.randomization.shuffle(selectBalancedTrials(VALUES.v, VALUES.max_abs));
+  all_trials = [];
+  for (var c = 0; c < chosen.length; c++) {
+    var left  = chosen[c].hi_right ? chosen[c].pair.lo : chosen[c].pair.hi;
+    var right = chosen[c].hi_right ? chosen[c].pair.hi : chosen[c].pair.lo;
+    all_trials.push({
+      stimuli: ["img/" + left + "_food.jpg", "img/" + right + "_food.jpg"],
+      target_left: true,   // the sides are the design here, so the plugin must not swap them
+      data: {item1: left, item2: right}
+    });
+  }
+}
 
 /* randomize time after trial */
 var post_trial_gap = function() {
@@ -112,6 +315,19 @@ var test_block = {
       jsPsych.data.addDataToLastTrial({item1: frog2}); //item1 = left
       jsPsych.data.addDataToLastTrial({item2: frog});  //item2 = right
      }
+    /* Record the Section 1 bids behind the trial: value1 and value2 are the mean bids
+       for the snacks on the left and on the right, delta is right minus left (Delta in
+       PS2 Q1), and bin is which of the 15 bins of Q1(e) the trial belongs to. */
+    if (VALUES.v !== null) {
+      var v_left  = VALUES.v[((data.reverse == true) ? frog2 : frog) - 1];
+      var v_right = VALUES.v[((data.reverse == true) ? frog : frog2) - 1];
+      jsPsych.data.addDataToLastTrial({
+        value1: v_left,
+        value2: v_right,
+        delta: Math.round((v_right - v_left) * 1e6) / 1e6,
+        bin: binOf(v_right - v_left, VALUES.max_abs)
+      });
+    }
     var correct = true;
     jsPsych.data.addDataToLastTrial({correct: correct});
     var round = i;

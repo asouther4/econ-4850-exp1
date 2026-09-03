@@ -49,9 +49,14 @@ jsPsych.plugins["binary-choice"] = (function() {
     // that need to be cleared if the trial ends early
     var setTimeoutHandlers = [];
 
-    // randomize whether the target is on the left or the right
+    // randomize whether the target is on the left or the right, unless the trial fixes
+    // the layout with target_left. Task 2 sets it: the sign of the value difference on a
+    // trial is decided by which snack is on the right, so which side each snack goes on
+    // is part of the trial's design there rather than something to leave to chance.
     var images = [trial.a_path, trial.b_path];
-    var target_left = (Math.floor(Math.random() * 2) === 0); // 50% chance target is on left.
+    var target_left = (typeof trial.target_left === 'undefined') ?
+      (Math.floor(Math.random() * 2) === 0) :  // 50% chance target is on left.
+      (trial.target_left === true);
     if (!target_left) {
       images = [trial.b_path, trial.a_path];
     }
