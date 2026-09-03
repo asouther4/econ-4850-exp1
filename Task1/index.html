@@ -64,7 +64,7 @@ var instructions_block = {
     text: "<p>In this task, a sequence of snack items will appear on the screen.</p>" +
         "<p>Please state your willingness to pay for each product, i.e. the maximum " +
         "amount that you would be willing to pay in order to buy that product. You can " +
-        "select any value from $0 to $5 by moving the on-screen slider with the mouse. " +
+        "select any value from $0 to $10 by moving the on-screen slider with the mouse. " +
         "Clicking the submit button will allow you to proceed to the next item.</p></div>" +
         "<p>Press any key to begin.</p>",
         timing_post_trial: 2000
@@ -116,7 +116,7 @@ var post_trial_gap = function() {
 /* choice block */
 var test_block = {
     type: 'bidding',
-    labels: ['$ 0','$ 1','$ 2','$ 3','$ 4','$ 5'], //values for the slider
+    labels: ['$ 0','$ 1','$ 2','$ 3','$ 4','$ 5','$ 6','$ 7','$ 8','$ 9','$ 10'], //values for the slider
     intervals: 101,
     show_ticks: false,
     timing_first_stim: 1, //1ms for the first image
@@ -126,7 +126,7 @@ var test_block = {
     timing_post_trial: post_trial_gap,
     timeline: all_trials,
     on_finish: function(trial_data){
-        var bidding = (trial_data.sim_score-1)/20;
+        var bidding = (trial_data.sim_score-1)/10;
         jsPsych.data.addDataToLastTrial({bidding: bidding});
     }
 };
@@ -153,7 +153,7 @@ var debrief_block = {
         var subject_data = getSubjectData();
         return "<p>You completed the first task. Your average response time was <strong>" +
         subject_data.rt + " ms</strong>.</p><p>The average value you assigned was<strong> $ " +
-        subject_data.sim_score/20 + "</strong>. Press any key to finish this section "+
+        subject_data.sim_score/10 + "</strong>. Press any key to finish this section "+
         "and download your data file.</p>";
        }
 };
