@@ -36,10 +36,12 @@ var welcome_block = {
 /* Task 1 hands the UNI over in the query string (../Task2/?uni=ab1234), so in the normal
    flow students never type it twice and the two data files are guaranteed to carry the
    same identifier. The prompt below is only a fallback for someone who opens this page
-   directly; it applies the same normalization and validation as Task 1. */
-var uni_is_valid = function(code) { return /^[a-z]{2,3}[0-9]{4}$/.test(code); };
+   directly; it applies the same normalization as Task 1 and, like Task 1, accepts any
+   string of letters and numbers rather than checking it against a UNI format. */
+var uni_normalize = function(raw) { return String(raw).replace(/[^a-zA-Z0-9]/g, '').toLowerCase(); };
+var uni_is_valid = function(code) { return code.length > 0; };
 var uni_from_url = jsPsych.data.getURLVariable('uni');
-var uni_code = (typeof uni_from_url === 'string') ? uni_from_url.replace(/\s+/g, '').toLowerCase() : '';
+var uni_code = (typeof uni_from_url === 'string') ? uni_normalize(uni_from_url) : '';
 var uni_from_task1 = uni_is_valid(uni_code);
 if (!uni_from_task1) { uni_code = ''; }
 var uni_attempts = 0;
@@ -49,14 +51,13 @@ var uni_trial = {
     questions: ["Enter your UNI in the box below and press submit to begin the second task."],
     preamble: function() {
       if (uni_attempts === 0) { return ""; }
-      return '<p style="color:#a00;"><strong>That does not look like a valid UNI.</strong> ' +
-             'A UNI is 2 or 3 letters followed by 4 digits, for example ab1234. Please try again.</p>';
+      return '<p style="color:#a00;"><strong>Please enter your UNI before continuing.</strong></p>';
     },
     rows: [1],
     columns: [10],
     on_finish: function(trial_data){
       var responses = JSON.parse(trial_data.responses);
-      uni_code = String(responses.Q0).replace(/\s+/g, '').toLowerCase();
+      uni_code = uni_normalize(responses.Q0);
       uni_attempts = uni_attempts + 1;
       jsPsych.data.addProperties({uni_code: uni_code});
     }
